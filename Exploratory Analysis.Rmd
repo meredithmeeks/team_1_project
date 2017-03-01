@@ -39,13 +39,39 @@ ggplot(clean, aes(x = agewed)) + geom_histogram(bins = 60)
 
 age_by_mar <- ggplot(clean, aes(x = marital, y = agewed))
 
-age_by_mar + geom_bar(stat = "identity")
-
 age_by_mar + coord_flip() + geom_point()
 
+#  agewed by education level
+ggplot(clean, aes(x = agewed, y = educ)) +
+  geom_jitter()
 
-## hi git
+#  agewed by political party
+ggplot(clean, aes(x = agewed, y = partyid)) +
+  geom_jitter()
 
+#  agewed by religion
+ggplot(clean, aes(x = agewed, y = relig)) +
+  geom_jitter()
+
+#  agewed by number of children -- not a useful variable
+ggplot(clean, aes(x = agewed, y = childs)) +
+  geom_jitter()
+
+#  agewed by gender
+table(clean$sex)
+ggplot(clean, aes(x = agewed, y = sex)) +
+  geom_jitter()
+
+#  agewed by race
+ggplot(clean, aes(x = agewed, y = race)) +
+  geom_jitter()
+
+ggplot(clean, aes(x = agewed, y = income)) +
+  geom_jitter()
+
+
+ggplot(clean, aes(x = educ, y = marital)) +
+  geom_jitter()
 ```
 
 
