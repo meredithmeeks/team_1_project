@@ -1,0 +1,74 @@
+---
+title: 'team 1'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+stopifnot(require(tidyverse))
+gss <- read.csv(file.choose())
+```
+
+```{r}
+clean <- gss[which(gss$agewed >= 12 | gss$marital == 5), ]
+table(gss$marital == 5)  # 1080 respondents who never married
+table(clean$marital == 5)  # still 1080
+table(clean$marital == 5, clean$agewed)  # seems about right
+
+length(clean$agewed[clean$marital == 5])  # 1080 NA
+sum(is.na(clean$agewed)) 
+```
+
+```{r}
+
+library(ggplot2)
+ggplot(clean, aes(x = agewed)) + geom_histogram(bins = 60)
+
+age_by_mar <- ggplot(clean, aes(x = marital, y = agewed))
+
+age_by_mar + coord_flip() + geom_point()
+age_by_mar
+```
+
+```{r}
+ggplot(clean, aes(x = agewed, y = educ)) +
+  geom_jitter()
+```
+```{r}
+#  agewed by political party
+ggplot(clean, aes(x = agewed, y = partyid)) +
+  geom_jitter()
+```
+```{r}
+#  agewed by religion
+ggplot(clean, aes(x = agewed, y = relig)) +
+  geom_jitter()
+```
+
+```{r}
+
+#  tried other variables. this one is agewed by "can you trust people"
+ggplot(clean, aes(x = agewed, y = fewtrsty)) +
+  geom_jitter()
+
+
+```
+```{r}
+#  agewed by gender
+table(clean$sex)
+ggplot(clean, aes(x = agewed, y = sex)) +geom_jitter()
+```
+
+```{r}
+#  agewed by race
+ggplot(clean, aes(x = agewed, y = race)) +
+  geom_jitter()
+
+ggplot(clean, aes(x = agewed, y = income)) +
+  geom_jitter()
+
+
+ggplot(clean, aes(x = educ, y = marital)) +
+  geom_jitter()
+```
+
