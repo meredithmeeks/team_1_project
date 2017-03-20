@@ -9,7 +9,7 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-## Data Challenge 2 (due on 3/22 at 6PM)
+## Data Challenge 2
 
 1. Ask two (2) questions that might help you understand better the dynamics of violence contained on our datas et. Apply one algorithm per question and share your insights from each analysis. [50 pts]  Remember: a non-finding is also a finding! It tells you whether a question is worth pursuing further or not.
 	* perform the necessary transformations in your data - if any are needed, and explain why you did that
@@ -53,7 +53,31 @@ if (!require("ggplot2")) {
 if (!require("readr")) {
  install.packages("readr", dependencies = TRUE)
  library(readr)
+}
+if (!require("pscl")) {
+ install.packages("pscl", dependencies = TRUE)
+ library(pscl)
  }
+if (!require("MASS")) {
+ install.packages("MASS", dependencies = TRUE)
+ library(MASS)
+ }
+if (!require("boot")) {
+ install.packages("boot", dependencies = TRUE)
+ library(boot)
+ }
+if (!require("AICcmodavg")) {
+ install.packages("AICcmodavg", dependencies = TRUE)
+ library(AICcmodavg)
+}
+if (!require("lubridate")) {
+ install.packages("lubridate", dependencies = TRUE)
+ library(lubridate)
+}
+if (!require("randomForest")) {
+ install.packages("randomForest", dependencies = TRUE)
+ library(randomForest)
+}
 ```
 
 ```{r Load Data}
@@ -62,7 +86,122 @@ Confrontations$date <- as.Date(Confrontations$date)
 str(Confrontations)
 ```
 
+#### Project Book
+
 ```{r}
+summary(Confrontations$civilian.dead)
+sum(Confrontations$civilian.dead)
+which(colnames(Confrontations) == "civilian.dead")
+```
+#### Question 1
+
+##### Part 1
+
+We are looking for the effect of independent variables on the number of non-law enforcement persons (civilians and organized crime members) wounded.
+
+```{r}
+civ_oc_wounded <- Confrontations$organized.crime.wounded + Confrontations$civilian.wounded
+Confrontations_2 <- cbind(Confrontations, civ_oc_wounded)
+
+civ_oc_wounded_plot <- ggplot(Confrontations_2, aes(civ_oc_wounded)) + 
+  geom_bar() + theme_bw() + 
+  xlab("Civilians and Organized Crime Wounded") + ylab("Count")
+civ_oc_wounded_plot
+
+# mean
+mean(Confrontations_2$civ_oc_wounded)
+
+# variance
+var(Confrontations_2$civ_oc_wounded)
+```
+
+We notice two things about the data - one, there are a large number of cases in which zero civilians or organized crime members were wounded. Second, the variance of the distribution (1.55) is much larger than the mean (0.44).
+In these cases, it may be better to use a zero-inflated negative binomial regression, rather than a linear regression model. 
+For comparison, let us first look at the performance of a linear regression model:
+
+```{r}
+#independent variables:
+Confrontations_2$arms_seized <- Confrontations_2$long.guns.seized + Confrontations_2$small.arms.seized
+Confrontations_2$cart_clips_seized <- Confrontations_2$cartridge.sezied + Confrontations_2$clips.seized
+ols_civ_oc_wounded <- glm(civ_oc_wounded ~ arms_seized + vehicles.seized + army + navy + afi + federal.police + municipal.police + ministerial.police + state.police, Confrontations_2, family="gaussian")
+```
+
+Now we can look at the same model, but modeled as a zero-inflated negative binomial distribution:
+
+```{r}
+znb_civ_oc_wounded <- zeroinfl(civ_oc_wounded ~ arms_seized + vehicles.seized + army + navy + afi + federal.police + municipal.police + ministerial.police + state.police, data = Confrontations_2, dist = "negbin", EM = TRUE)
+summary(znb_civ_oc_wounded)
+AICc(znb_civ_oc_wounded, return.K = FALSE, second.ord = FALSE)
+```
+
+Comparing the AIC values, we can see that the zero-inflated negative binomial model performs much better the linear model. 
+
+##### Part 2
+
+We are using randomForest package to build an algorithm predicing the number of civilians dead in a given confrontaion.
+
+```{r}
+# randomForest algorithm
+
+set.seed(34593475)
+# may have to use rfImpute to impute missing values but dropping for now
+
+Confrontations_nafix <- Confrontations[ , apply(Confrontations, 2, function(x) !any(is.na(x)))]
+which(colnames(Confrontations_nafix) == "civilian.dead")
+
+rf <- randomForest(x = Confrontations_nafix[ , -17], y = Confrontations[ , 17], ntree = 100,
+                   na.action = na.omit, importance = TRUE, proximity = TRUE)
+
+rf
+
+plot(rf$mse)
+
+plot(rf$importance[,1])
+
+varImpPlot(rf, main = "Variance Importance Plot",
+           cex = .6, pt.cex = .8, pch = 6, bg = "blue")
+
+# class(rf$importance[,1])
+
+#ggplot(as.data.frame(rf$importance), 
+#       aes(x = rf$importance[,1], y = reorder(rownames(rf$importance), rf$importance[,1]))) +
+#  geom_point() +
+#  theme(axis.text.y = element_text(size = 6))
 
 ```
 
+The most important factor in predicting the number of civilians dead in a confrontation is the number of municipal police dead. The second and third most important factors are the total number of deaths in a confrontation and the factor variable of municipal police involvement. Although randomForest results are not as interpretable as OLM or ligistic regressions, the high importance of these factors in combination with low MSE and a very large portion of the variance explained can be insightful. Perhaps incidents involving the municipal police involve more civilians and therefore, may lead to more civilian casualties if the confrontations are deadly enough (total number of deaths). For the purposes of running a randomForest algorithm, 11 variables containing missing values had to be excluded from the dataset. These variables included law enforcement agencies' lethality rating variables and "newIndex" variables. The variable importance chart also cannot be used to gain definite insight into the causality of the situations, and the explanation above is only a conjecture, since the chart only explains the importance of the variables for predicting the number of civilian deaths, and not the value by which each variable influences the number of civilian deaths.
+
+
+#### Question 2
+
+##### Part 1
+
+We are creating a binary variable indicating whether any casualties at all occured during a confrontation and then using a conditional logistic model to estimate the effect of involvement of particular law enforcement agencies and military forces on sustaining casualties in a confrontation.
+
+```{r}
+table(Confrontations$category)
+Confrontations_cat <- Confrontations
+Confrontations_cat$anycasualties <- ifelse(Confrontations_cat$category == "no.dead.wounded",
+                                        "No", "Yes")
+Confrontations_cat$anycasualties <- as.factor(Confrontations_cat$anycasualties)
+
+summary(casualties_present <- glm(anycasualties ~ army + navy + federal.police + municipal.police + afi + ministerial.police +
+                             army*navy + navy*municipal.police + army*municipal.police, 
+                          family = binomial(link = "logit"), data = Confrontations_cat))
+```
+
+
+##### Part 2
+
+conditional hypothesis: look at the effect of the **army** being involved in number of civilians + organized crime wounded when arms are seized (long guns + small arms) and when clips or cartridges are seized
+
+```{r}
+conditional_ols <- lm(formula = civ_oc_wounded ~ army * arms_seized + 
+                        army * cart_clips_seized + vehicles.seized + 
+                        navy + afi + federal.police + municipal.police + 
+                        ministerial.police + state.police, 
+                      data = Confrontations_2)
+```
+
+From the output of the model, we can see that the marginal effect of the army on the number wounded when no arms are seized or cartridges/clips seized is -0.416. When arms are seized, the marginal effect is smaller (-0.03) and less significant (p < 0.01). When cartridges or clips are seized, the effect is positive, but is even smaller (0.000085) and less significant (p < 0.05).
