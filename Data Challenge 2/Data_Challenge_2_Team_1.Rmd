@@ -35,8 +35,6 @@ knitr::opts_chunk$set(echo = TRUE)
 		* one paragraph that reflects all nuance in your insight 
 	* make sure to also include your code 
 
-This is a team assignment. Please create a file on your team GitHub repo where you answer the challenge, including links to your code, and graphs.
-
 ```{r Libraries, message=FALSE}
 if (!require("dplyr")) {
  install.packages("dplyr", dependencies = TRUE)
@@ -91,7 +89,10 @@ Confrontations <- Confrontations[ , -c(which(colnames(Confrontations) == "global
 # str(Confrontations)
 ```
 
+
+
 #### Question 1
+
 
 ##### Part 1
 
@@ -164,6 +165,7 @@ From a zero-inflated negative binomial model of the number of civilians and orga
 
 The nuance with this type of model comes with the balance between model fit and interpretability. While the zero-inflated negative binomial distribution fits the model better than the linear model, the coefficients are not as easily interpretable as in a linear model. In our model, the direct coefficients are log counts, and exponentiated we can consider them to be incident rate ratios. This tells us about the relative impact of each variable as a ratio of incidence rates, but this is not as easily interpretable as an OLS coefficient. The finding that we have found, that the rates of civilians and organized crime members wounded is higher in situations where arms or vehicles are seized, is quite interesting and may tell us more about the types of confrontations in which civilians or organized crime members are wounded. We also see that incident rate ratios of woundings are lower with certain types of law enforcement (army, municipal police, ministerial police, state police). Both of these findings are quite interesting and should be pursued further - we can ask questions like do those law enforcement bodies use different policies than others? Or is it a matter of which law enforcement parties are generally involved when arms or vehicles are seized?
 
+
 ##### Part 2
 
 We are using randomForest package to build an algorithm predicing the number of civilians dead in a given confrontaion.
@@ -197,22 +199,29 @@ Although randomForest results are not as interpretable as OLM or ligistic regres
 The most important factor in predicting the number of civilians dead in a confrontation is the total number of dead in a confrontations. Interestingly, the number of municipal police dead is also a pretty important variable, perhaps because municipal police is deployed in urban conflicts. It is reasonable to assume that incidents involving the municipal police involve more civilians and therefore, these two factors are related if the confrontations are deadly enough (total number of deaths). However, our model has a pretty high MSE at .55 even after running 1000 trees and only 22% of the variance is explained. This result is high since the summary of the **civilian.dead** variable included above shows that the median value of civilian deaths is 0 and the mean is close to 1. There are too many confrontations involving no deaths in the dataset to meaningfully predict civilian deaths with any accuracy. There also might be explanatory factors not included in the dataset that could improve the model and so, the suggested course of action is to gather more data on the circumstances under which civilian deaths occur in order to improve the model.
 
 
+
 #### Question 2
+
 
 ##### Part 1
 
-Following up on the randomForest algorithm aboe, we are creating a binary variable indicating whether any casualties (**anycasualties**) at all occured during a confrontation and then using a conditional logistic model to estimate the effect of involvement of particular law enforcement agencies and military forces on sustaining casualties in a confrontation in which the **municipal.police** was involved.
+Following up on the randomForest algorithm above, we are creating a binary variable indicating whether any casualties (**anycasualties**) at all occured during a confrontation and then using a conditional logistic model to estimate the effect of involvement of particular law enforcement agencies and military forces on sustaining casualties in a confrontation in which the **municipal.police** was involved. The hypothesis is that the likelihood of any casualties sustained when municipal police is involved is lower than when the municipal police is accompanied by the navy, army, or federal police, since the assumption is that the municipal police is involved alone in smaller urban matters, whereas the federal and military forces get called in for heavier conflicts.
 
 ```{r}
 
 # recode category variables
-table(Confrontations$category)
 Confrontations_cat <- Confrontations
 Confrontations_cat$anycasualties <- ifelse(Confrontations_cat$category == "no.dead.wounded",
                                         "No", "Yes")
 Confrontations_cat$anycasualties <- as.factor(Confrontations_cat$anycasualties)
+table(Confrontations_cat$anycasualties)
+table(Confrontations_cat$anycasualties, Confrontations$municipal.police)
+```
 
-# run logit model
+For the purposes of the model, the **category** variable was recoded into **anycasualties** variable to indicate a binary response to whether any casualties at all were sustained in a confrontation. From the table of **anycasualties** responses, we can see that in approximately 57% of confrontations, no casualties at all are sustained. Moreover, when municipal police is not involved, casualties occur around half of the time, but when they are involved, casualties occur much less frequently (see another table above).
+
+```{r}
+# fir a logit model
 summary(casualties_present <- glm(anycasualties ~ municipal.police + army + navy + federal.police + 
                                     afi + ministerial.police + state.police +
                                     municipal.police*navy + 
@@ -238,7 +247,6 @@ marginal_army <- casualties_present$coefficients["municipal.police"] +
 marginal_fedpolice <- casualties_present$coefficients["municipal.police"] + 
   casualties_present$coefficients["municipal.police:federal.police"]*moderator
 
-
 # variances
 var_navy <- covMat["municipal.police", "municipal.police"] + 
   (moderator^2)*covMat["municipal.police:navy", "municipal.police:navy"] + 
@@ -260,22 +268,47 @@ se_army = sqrt(var_army)
 se_fedpolice = sqrt(var_fedpolice)
 
 # print the results
-army <- matrix(rbind(marginal_army, se_army), ncol = 2)
-colnames(army) <- c("no army", "involving army")
-row.names(army) <- c("marginal effect", "standard error")
-
 navy <- matrix(rbind(marginal_navy, se_navy), ncol = 2)
 colnames(navy) <- c("no navy", "involving navy")
 row.names(navy) <- c("marginal effect", "standard error")
+
+army <- matrix(rbind(marginal_army, se_army), ncol = 2)
+colnames(army) <- c("no army", "involving army")
+row.names(army) <- c("marginal effect", "standard error")
 
 fedpolice <- matrix(rbind(marginal_fedpolice, se_fedpolice), ncol = 2)
 colnames(fedpolice) <- c("no fed police", "involving fed police")
 row.names(fedpolice) <- c("marginal effect", "standard error")
 
-army
 navy
+army
 fedpolice
 ```
+
+The results are on a logit scale and would involve some confusing calculations to convert them to percentages, so we chose to leave them in logit, except in a plot below, where the results are represented in probability. The numbers are related to increases or decreases in the odds of the dependent variable having a value of 1, which means sustaining casualties in our model.
+
+The important takeaway from the model is that the involvement of any military or federal forces does increase the chances of sustaining casualties in a given confrontation. Tables of side-by-side comparison are provided above (don't forget to add the intercept for the full picture). The coefficients on municipal police and other local forces are statistically significant, as well as that of the federal police and interactions between the municipal police and army or federal police. Surprisingly, the interaction on navy variable is not significant and the standard error is humongous! An explanation is given below with a table that shows that municipal police and the navy were involved in exactly one confrontation together in the entire dataset. It is also surprising that the involvement of the federal police increases the chances of having casualties more than that of the army in combination with the municipal police. The rates of federal police  or army cooperation with municipal police are similar and reasonable (tables not shown). Perhaps federal police mishandles situations more frequently than the army. It is assumed that they both would have jurisdiction over the municipal police.
+
+```{r}
+table(Confrontations$municipal.police, Confrontations$navy)
+```
+
+```{r}
+marginal_effects <- data.frame(c(exp(navy[1,1])/(1+exp(navy[1,1])), exp(army[1,2])/(1+exp(army[1,2])), exp(fedpolice[1,2])/(1+exp(fedpolice[1,2]))), nrow = 3)
+row.names(marginal_effects) <- c("municipal police alone", "army", "federal police")
+colnames(marginal_effects) <- "value"
+
+marginal_effects
+
+ggplot(marginal_effects, aes(x = row.names(marginal_effects), y = value)) +
+  geom_bar(stat = "identity") +
+  labs(title = "Probability of Sustaining Casualtieswhen Municipal Police\nCooperates with Other Agencies",
+       y = "Increase in Probability of Sustaining Casualties",
+       x = "Cooperating Agency") +
+  theme_classic()
+```
+
+The findings are somewhat in line with the hypothesis, showing that municipal police involvement alone decreases the odds of having casualties, but paired with other forces, the odds are increased. It would be useful to have a variable describing the type of operation carried out to fully explain the findings. For instance, if the federal police is involved in drug busts together with municipal police, while the army is involved in evacuations together with municipal police, and municipal police is involved mainly in petty crimes when alone, it might explain the coefficients we found, as these operations are listed in assumed decreasing order of propability of extreme violence occuring.
 
 
 ##### Part 2
