@@ -328,7 +328,7 @@ summary(conditional_ols)
 
 # marginal effect
 moderator <- c(0, 1)
-marginal_effect_army_arms <- conditional_ols$coefficients["army"] + conditional_ols$coefficients["army:arms_seized"]*moderator
+(marginal_effect_army_arms <- conditional_ols$coefficients["army"] + conditional_ols$coefficients["army:arms_seized"]*moderator)
 
 # variances
 covMat = vcov(conditional_ols)
@@ -343,7 +343,7 @@ se_army_arms
 
 # marginal effect
 moderator <- c(0, 1)
-marginal_effect_army_clips <- conditional_ols$coefficients["army"] + conditional_ols$coefficients["army:clips.seized"]*moderator
+(marginal_effect_army_clips <- conditional_ols$coefficients["army"] + conditional_ols$coefficients["army:clips.seized"]*moderator)
 
 # variances
 covMat = vcov(conditional_ols)
