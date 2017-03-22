@@ -224,14 +224,56 @@ interaction_plot_binary(casualties_present, effect = "army", moderator = "navy",
 
 ##### Part 2
 
-conditional hypothesis: look at the effect of the **army** being involved in number of civilians + organized crime wounded when arms are seized (long guns + small arms) and when clips or cartridges are seized
+conditional hypothesis: look at the effect of the **arms_seized** (long guns and small arms) and **clips.seized** (cartidges or clips seized) on the number of civilians or organized crime members wounded in events involving the army:
 
 ```{r}
-conditional_ols <- lm(formula = civ_oc_wounded ~ army + arms_seized + cart_clips_seized + 
-                        army * arms_seized + army * cart_clips_seized + vehicles.seized + 
+
+conditional_ols <- lm(formula = civ_oc_wounded ~ army + arms_seized + clips.seized + 
+                        army * arms_seized + army * clips.seized + vehicles.seized + 
                         navy + afi + federal.police + municipal.police + 
                         ministerial.police + state.police, 
                       data = Confrontations_2)
+summary(conditional_ols)
+
+# Standard error for interaction between army and arms_seized
+
+# marginal effect
+moderator <- c(0, 1)
+marginal_effect_army_arms <- conditional_ols$coefficients["army"] + conditional_ols$coefficients["army:arms_seized"]*moderator
+
+# variances
+covMat = vcov(conditional_ols)
+var_army_arms <- covMat["army", "army"] + (moderator^2)*covMat["army:arms_seized", "army:arms_seized"] + 
+  2*moderator*covMat["army", "army:arms_seized"]
+  
+# standard errors
+se_army_arms = sqrt(var_army_arms)
+se_army_arms
+
+# Standard error for interaction between army and clips.seized
+
+# marginal effect
+moderator <- c(0, 1)
+marginal_effect_army_clips <- conditional_ols$coefficients["army"] + conditional_ols$coefficients["army:clips.seized"]*moderator
+
+# variances
+covMat = vcov(conditional_ols)
+var_army_clips <- covMat["army", "army"] + (moderator^2)*covMat["army:clips.seized", "army:clips.seized"] + 
+  2*moderator*covMat["army", "army:clips.seized"]
+  
+# standard errors
+se_army_clips = sqrt(var_army_clips)
+se_army_clips
 ```
 
-From the output of the model, we can see that the marginal effect of the army on the number wounded when no arms are seized or cartridges/clips seized is -0.416. When arms are seized, the marginal effect is smaller (-0.03) and less significant (p < 0.01). When cartridges or clips are seized, the effect is positive, but is even smaller (0.000085) and less significant (p < 0.05).
+From the output of the model, we can see that the interaction term between **arms_seized** and **army** is significant with a p-value less than 0.01. The marginal effect of the one additional seized weapon (either long gun or small arms) on the number of civilians or organized crime members in events involving the army is -0.0312 (coefficient on interaction term) added to -0.4094 (coefficient on army), for a total marginal effect of -0.4406. If 100 arms (long guns or small arms) are seized, then the marginal effect is -0.4094 + (100*-0.0314) = -3.529 fewer wounded civilians or organized crime members. The standard error is 0.0458.
+
+Looking at the interaction between **clips_seized** and **army**, we can see that this interaction term is slightly less significant with a p-value less than 0.05. The coefficient on the interaction term is also very small (0.00244). We can interpret this as for every 1000 clips that are seized, the marginal effect on the number of civilans or organized crime members wounded is  -0.4094 + (1000*-0.00244), or 2.0338 more wounded civilians or organized crime members. The standard error is 0.0471. 
+
+Summary of insights:
+
+This is an interesting finding because it seems that the marginal effect of more arms seized when the army is involved is a lower number of wounded among non-law enforcement persons. However, the marginal effect of more clips seized is a higher number of wounded civilians or organized crime members. 
+
+There are several points here that should be considered and investigated further. First, the finding related to arms may make sense in that army may be more equipped than local police to deal with operations that involve large numbers of arms being seized. If they are more prepared for these operations, or if criminals surrender arms more easily when they are faced with the army, there may be fewer people wounded. However, I am curious if the relationship between number of arms seized and number wounded is indeed linear, or if the army is really present at many confrontations where arms or clips are seized. 
+
+The second finding, that the number of clips seized has a positive effect on the number of non-law enforcement persons wounded in confrontations involving the army, is also interesting because it is a different trend than we would expect given the first finding. It may be the case that clips are seized during different types of operations, or the army is generally not involved in these and is not as perpared. More investigation would be needed in this case.
