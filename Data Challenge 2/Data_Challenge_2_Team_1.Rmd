@@ -37,7 +37,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 This is a team assignment. Please create a file on your team GitHub repo where you answer the challenge, including links to your code, and graphs.
 
-```{r Libraries}
+```{r Libraries, message=FALSE}
 if (!require("dplyr")) {
  install.packages("dplyr", dependencies = TRUE)
  library(dplyr)
@@ -84,10 +84,11 @@ if (!require("randomForest")) {
 Confrontations <- read.csv("AllViolenceData_170216.csv")
 Confrontations$date <- as.Date(Confrontations$date)
 # take out global.id, event.id, unix.timestamp
+# these unimformative variables may influence the models
 Confrontations <- Confrontations[ , -c(which(colnames(Confrontations) == "global.id"),
                                        which(colnames(Confrontations) == "event.id"),
                                        which(colnames(Confrontations) == "unix.timestamp"))]
-str(Confrontations)
+# str(Confrontations)
 ```
 
 #### Question 1
@@ -175,9 +176,11 @@ set.seed(34593475)
 
 Confrontations_nafix <- Confrontations[ , apply(Confrontations, 2, function(x) !any(is.na(x)))]
 
+summary(Confrontations_nafix$civilian.dead)
+
 rf <- randomForest(x = Confrontations_nafix[ , -which(colnames(Confrontations_nafix) == "civilian.dead")], 
                    y = Confrontations_nafix[ , which(colnames(Confrontations_nafix) == "civilian.dead")], 
-                   ntree = 100, importance = TRUE, proximity = TRUE)
+                   ntree = 1000, importance = TRUE, proximity = TRUE)
 
 rf
 
@@ -185,46 +188,99 @@ plot(rf$mse)
 
 varImpPlot(rf, main = "Variance Importance Plot",
            cex = .6, pt.cex = .8, pch = 6)
-
-# class(rf$importance[,1])
-
-#ggplot(as.data.frame(rf$importance), 
-#       aes(x = rf$importance[,1], y = reorder(rownames(rf$importance), rf$importance[,1]))) +
-#  geom_point() +
-#  theme(axis.text.y = element_text(size = 6))
-
 ```
 
-The most important factor in predicting the number of civilians dead in a confrontation is the number of municipal police dead. The second and third most important factors are the total number of deaths in a confrontation and the factor variable of municipal police involvement. Although randomForest results are not as interpretable as OLM or ligistic regressions, the high importance of these factors in combination with low MSE and a very large portion of the variance explained can be insightful. Perhaps incidents involving the municipal police involve more civilians and therefore, may lead to more civilian casualties if the confrontations are deadly enough (total number of deaths). For the purposes of running a randomForest algorithm, 11 variables containing missing values had to be excluded from the dataset. These variables included law enforcement agencies' lethality rating variables and "newIndex" variables. The variable importance chart also cannot be used to gain definite insight into the causality of the situations, and the explanation above is only a conjecture, since the chart only explains the importance of the variables for predicting the number of civilian deaths, and not the value by which each variable influences the number of civilian deaths.
+For the purposes of running a randomForest algorithm, 11 variables containing missing values had to be excluded from the dataset. These variables included law enforcement agencies' lethality rating variables and "newIndex" variables. 
+
+Although randomForest results are not as interpretable as OLM or ligistic regressions, a high importance of some factors in combination with low MSE and a large portion of the variance explained can be insightful. The variable importance chart also cannot be used to gain definite insight into the causality of the situations, and the explanations below are only conjectures, since the chart only explains the importance of the variables for predicting the number of civilian deaths, and not the value by which each variable influences the number of civilian deaths.
+
+The most important factor in predicting the number of civilians dead in a confrontation is the total number of dead in a confrontations. Interestingly, the number of municipal police dead is also a pretty important variable, perhaps because municipal police is deployed in urban conflicts. It is reasonable to assume that incidents involving the municipal police involve more civilians and therefore, these two factors are related if the confrontations are deadly enough (total number of deaths). However, our model has a pretty high MSE at .55 even after running 1000 trees and only 22% of the variance is explained. This result is high since the summary of the **civilian.dead** variable included above shows that the median value of civilian deaths is 0 and the mean is close to 1. There are too many confrontations involving no deaths in the dataset to meaningfully predict civilian deaths with any accuracy. There also might be explanatory factors not included in the dataset that could improve the model and so, the suggested course of action is to gather more data on the circumstances under which civilian deaths occur in order to improve the model.
 
 
 #### Question 2
 
 ##### Part 1
 
-We are creating a binary variable indicating whether any casualties at all occured during a confrontation and then using a conditional logistic model to estimate the effect of involvement of particular law enforcement agencies and military forces on sustaining casualties in a confrontation.
+Following up on the randomForest algorithm aboe, we are creating a binary variable indicating whether any casualties (**anycasualties**) at all occured during a confrontation and then using a conditional logistic model to estimate the effect of involvement of particular law enforcement agencies and military forces on sustaining casualties in a confrontation in which the **municipal.police** was involved.
 
 ```{r}
+
+# recode category variables
 table(Confrontations$category)
 Confrontations_cat <- Confrontations
 Confrontations_cat$anycasualties <- ifelse(Confrontations_cat$category == "no.dead.wounded",
                                         "No", "Yes")
 Confrontations_cat$anycasualties <- as.factor(Confrontations_cat$anycasualties)
 
-summary(casualties_present <- glm(anycasualties ~ army + navy + federal.police + municipal.police + afi + ministerial.police +
-                             army:navy + navy:municipal.police + army:municipal.police, 
-                          family = binomial(link = "logit"), data = Confrontations_cat))
+# run logit model
+summary(casualties_present <- glm(anycasualties ~ municipal.police + army + navy + federal.police + 
+                                    afi + ministerial.police + state.police +
+                                    municipal.police*navy + 
+                                    municipal.police*army + 
+                                    municipal.police*federal.police, 
+                                  family = binomial(link = "logit"), data = Confrontations_cat))
 
-casualties_present$coefficients
+# create moderator object with all unique values of conditional variables
+# in our case, moderator is (0,1) for all cases
+moderator <- c(0, 1)
+names(moderator) <- c("not involved", "involved")
+
+# obtain covariance matrix from the logit model for calculations
+covMat = vcov(casualties_present)
 
 # marginal effects
-interaction_plot_binary(casualties_present, effect = "army", moderator = "navy", interaction = "army:navy")
+marginal_navy <- casualties_present$coefficients["municipal.police"] + 
+  casualties_present$coefficients["municipal.police:navy"]*moderator
+
+marginal_army <- casualties_present$coefficients["municipal.police"] + 
+  casualties_present$coefficients["municipal.police:army"]*moderator
+
+marginal_fedpolice <- casualties_present$coefficients["municipal.police"] + 
+  casualties_present$coefficients["municipal.police:federal.police"]*moderator
+
+
+# variances
+var_navy <- covMat["municipal.police", "municipal.police"] + 
+  (moderator^2)*covMat["municipal.police:navy", "municipal.police:navy"] + 
+  2*moderator*covMat["municipal.police", "municipal.police:navy"]
+
+var_army <- covMat["municipal.police", "municipal.police"] + 
+  (moderator^2)*covMat["municipal.police:army", "municipal.police:army"] + 
+  2*moderator*covMat["municipal.police", "municipal.police:army"]
+
+var_fedpolice <- covMat["municipal.police", "municipal.police"] + 
+  (moderator^2)*covMat["municipal.police:federal.police", "municipal.police:federal.police"] + 
+  2*moderator*covMat["municipal.police", "municipal.police:federal.police"]
+  
+# standard errors
+se_navy = sqrt(var_navy)
+
+se_army = sqrt(var_army)
+
+se_fedpolice = sqrt(var_fedpolice)
+
+# print the results
+army <- matrix(rbind(marginal_army, se_army), ncol = 2)
+colnames(army) <- c("no army", "involving army")
+row.names(army) <- c("marginal effect", "standard error")
+
+navy <- matrix(rbind(marginal_navy, se_navy), ncol = 2)
+colnames(navy) <- c("no navy", "involving navy")
+row.names(navy) <- c("marginal effect", "standard error")
+
+fedpolice <- matrix(rbind(marginal_fedpolice, se_fedpolice), ncol = 2)
+colnames(fedpolice) <- c("no fed police", "involving fed police")
+row.names(fedpolice) <- c("marginal effect", "standard error")
+
+army
+navy
+fedpolice
 ```
 
 
 ##### Part 2
 
-conditional hypothesis: look at the effect of the **arms_seized** (long guns and small arms) and **clips.seized** (cartidges or clips seized) on the number of civilians or organized crime members wounded in events involving the army:
+conditional hypothesis: look at the effect of the **arms_seized** (long guns and small arms) and **clips.seized** (cartidges or clips seized) on the number of civilians or organized crime members wounded in events involving the **army**:
 
 ```{r}
 
