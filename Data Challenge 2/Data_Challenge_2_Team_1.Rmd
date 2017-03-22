@@ -355,6 +355,14 @@ se_army_clips = sqrt(var_army_clips)
 se_army_clips
 ```
 
+```{r}
+ggplot(Confrontations_2, aes(x = arms_seized, y = military.wounded)) + 
+  geom_jitter((aes(color=category))) + 
+  ggtitle("Number of Arms Seized and Military Wounded") + 
+  labs(x="Number of Arms Seized", y="Number of Military Wounded") +
+  theme_classic()
+```
+
 From the output of the model, we can see that the interaction term between **arms_seized** and **army** is significant with a p-value less than 0.01. The marginal effect of the one additional seized weapon (either long gun or small arms) on the number of civilians or organized crime members in events involving the army is -0.0312 (coefficient on interaction term) added to -0.4094 (coefficient on army), for a total marginal effect of -0.4406. If 100 arms (long guns or small arms) are seized, then the marginal effect is -0.4094 + (100*-0.0314) = -3.529 fewer wounded civilians or organized crime members. The standard error is 0.0458.
 
 Looking at the interaction between **clips_seized** and **army**, we can see that this interaction term is slightly less significant with a p-value less than 0.05. The coefficient on the interaction term is also very small (0.00244). We can interpret this as for every 1000 clips that are seized, the marginal effect on the number of civilans or organized crime members wounded is  -0.4094 + (1000*-0.00244), or 2.0338 more wounded civilians or organized crime members. The standard error is 0.0471. 
