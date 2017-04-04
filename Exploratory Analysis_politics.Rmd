@@ -12,6 +12,7 @@ knitr::opts_chunk$set(echo = TRUE)
 Libraries:
 ```{r, message=FALSE, warning=TRUE}
 stopifnot(require(tidyverse))
+stopifnot(require(dplyr))
 stopifnot(require(car))
 stopifnot(require(ggplot2))
 ```
@@ -20,22 +21,28 @@ stopifnot(require(ggplot2))
 ### Import Data
 ```{r}
 gss <- read.csv(file.choose()) # team_1_project/Data
-```
 
-### Clean and Subset Data
-```{r}
 partynames <- c("Strong Democrat", "Not Strong Democrat", "Independent near Democrat", 
                         "Independent", "Independent near Republican", "Not Strong Republican", 
                         "Strong Republican", "Other")
 
 gss$partyid <- as.factor(gss$partyid)
 levels(gss$partyid) <- partynames
+```
 
-table(gss$partyid == "Strong Democrat")
+### Clean and Subset Data
+```{r}
 
-summary(glm((partyid == "Independent near Democrat") ~ adults + as.factor(race) + as.factor(reg16) + as.factor(sex) + age + income + union + as.factor(childs), family = binomial(link = "logit"), data = gss))
+summary(glm((partyid == "Independent near Democrat") ~ adults + as.factor(race) + as.factor(relig == 1) + as.factor(sex) + age + rincom06 + as.factor(sex):rincom06 + union + child1 + child2 + child3more, family = binomial(link = "logit"), data = gss, subset = gss$partyid != "Strong Democrat"))
 
-table(gss$reg16, gss$partyid)
+gss$child1 <- ifelse(gss$childs==1, 1, 0)
+gss$child2 <- ifelse(gss$childs==2, 1, 0)
+gss$child3more <- ifelse(gss$childs>=3, 1, 0)
+gss$region <- as.factor(gss$region)
+gss <- within(gss, region <- relevel(region, ref = 3))
+gss$relig <- as.factor(gss$relig)
+gss <- within(gss, relig <- relevel(relig, ref = 4))
+
 
 ggplot(gss, aes(x = partyid, fill = as.factor(reg16))) +
   geom_bar(stat = "count")
