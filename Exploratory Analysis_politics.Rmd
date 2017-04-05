@@ -62,19 +62,19 @@ gss$race <- as.factor(gss$race)
 
 ```{r Analysis}
 # Indy Dem, no subset
-summary(glm((partyid == "Independent near Democrat") ~ as.factor(race) + (relig == 4) + (wrkgovt == 2) + (born == 2 | reg16 == 0) + sex + age + rincom06 + sex:rincom06 + prestg80 + degree + degree:as.factor(race) + marital + adults + child1 + child2 + child3more + union, family = binomial(link = "logit"), data = gss))
+summary(glm((partyid == "Independent near Democrat") ~ as.factor(race) + (relig == 4) + (born == 2 | reg16 == 0) + sex + age + rincom06 + sex:rincom06 + prestg80 + degree + degree:as.factor(race) + marital + adults + child1 + child2 + child3more + union, family = binomial(link = "logit"), data = gss))
 
 # Indy Dem, other Dems removed
-summary(glm((partyid == "Independent near Democrat") ~ as.factor(race) + (relig == 4) + (wrkgovt == 2) + (born == 2 | reg16 == 0) + sex + age + rincom06 + sex:rincom06 + prestg80 + degree + degree:as.factor(race) + marital + adults + child1 + child2 + child3more + union, family = binomial(link = "logit"), data = gss, subset = !(gss$partyid %in% c("Strong Democrat", "Not Strong Democrat"))))
+summary(glm((partyid == "Independent near Democrat") ~ as.factor(race) + (relig == 4) + (born == 2 | reg16 == 0) + sex + age + rincom06 + sex:rincom06 + prestg80 + degree + degree:as.factor(race) + marital + adults + child1 + child2 + child3more + union, family = binomial(link = "logit"), data = gss, subset = !(gss$partyid %in% c("Strong Democrat", "Not Strong Democrat"))))
 
 # Indy Rep, no subset
-summary(glm((partyid == "Independent near Republican") ~ as.factor(race) + (relig == 4) + (wrkgovt == 2) + (born == 2 | reg16 == 0) + sex + age + rincom06 + sex:rincom06 + prestg80 + degree + degree:as.factor(race) + marital + adults + child1 + child2 + child3more + union, data = gss))
+summary(glm((partyid == "Independent near Republican") ~ as.factor(race) + (relig == 4) + (born == 2 | reg16 == 0) + sex + age + rincom06 + sex:rincom06 + prestg80 + degree + degree:as.factor(race) + marital + adults + child1 + child2 + child3more + union, family = binomial(link = "logit"), data = gss))
 
 # Indy Rep, other Reps removed
-summary(glm((partyid == "Independent near Republican") ~ as.factor(race) + (relig == 4) + (wrkgovt == 2) + (born == 2 | reg16 == 0) + sex + age + rincom06 + sex:rincom06 + prestg80 + degree + degree:as.factor(race) + marital + adults + child1 + child2 + child3more + union, family = binomial(link = "logit"), data = gss, subset = gss$partyid != "Strong Republican"))
+summary(glm((partyid == "Independent near Republican") ~ as.factor(race) + (relig == 4) + (born == 2 | reg16 == 0) + sex + age + rincom06 + sex:rincom06 + prestg80 + degree + degree:as.factor(race) + marital + adults + child1 + child2 + child3more + union, family = binomial(link = "logit"), data = gss, subset = !(gss$partyid %in% c("Strong Republican", "Not Strong Republican"))))
 
 # Indy model full
-summary(glm((partyid == "Independent") ~ as.factor(race) + (relig == 4) + (wrkgovt == 2) + (born == 2 | reg16 == 0) + sex + age + rincom06 + sex:rincom06 + prestg80 + degree + degree:as.factor(race) + marital + adults + child1 + child2 + child3more + union, family = binomial(link = "logit"), data = gss))
+summary(glm((partyid == "Independent") ~ as.factor(race) + (relig == 4) + (born == 2 | reg16 == 0) + sex + age + rincom06 + sex:rincom06 + prestg80 + degree + degree:as.factor(race) + marital + adults + child1 + child2 + child3more + union, family = binomial(link = "logit"), data = gss))
 
 # Indy vs Rep vs Dem
 
@@ -127,39 +127,51 @@ ggplot(gss, aes(x = partyid, y = race)) +
 gss$notstrongdem <- ifelse(gss$partyid==1, 1, 0)
   
 ggplot(gss, aes(relig)) + 
-  geom_bar(aes(fill=as.factor(gss_2006$partyid)))
+  geom_bar(aes(fill=as.factor(gss$partyid)))
 
 #blue - weak democrat
 ggplot(gss, aes(relig)) + 
-  geom_bar(aes(fill=as.factor(gss_2006$notstrongdem)))
+  geom_bar(aes(fill=as.factor(gss$notstrongdem)))
 
 ggplot(gss, aes(x=relig, y=notstrongdem, color=as.factor(sex))) + 
   geom_jitter()
 
 #relig16
 ggplot(gss, aes(relig16)) + 
-  geom_bar(aes(fill=as.factor(gss_2006$partyid)))
+  geom_bar(aes(fill=as.factor(gss$partyid)))
 
 #blue - weak democrat
 ggplot(gss, aes(relig16)) + 
-  geom_bar(aes(fill=as.factor(gss_2006$notstrongdem)))
+  geom_bar(aes(fill=as.factor(gss$notstrongdem)))
 
 ggplot(gss, aes(x=relig16, y=notstrongdem, color=as.factor(sex))) + 
   geom_jitter()
 
 #adults
 ggplot(gss, aes(adults)) + 
-  geom_bar(aes(fill=as.factor(gss_2006$partyid)))
+  geom_bar(aes(fill=as.factor(gss$partyid)))
 
 #blue - weak democrat
 ggplot(gss, aes(adults)) + 
-  geom_bar(aes(fill=as.factor(gss_2006$notstrongdem)))
+  geom_bar(aes(fill=as.factor(gss$notstrongdem)))
 
 ggplot(gss, aes(x=adults, y=notstrongdem, color=as.factor(sex))) + 
   geom_jitter()
 
 ggplot(gss, aes(x=adults, y=notstrongdem, color=as.factor(race))) + 
   geom_jitter()
+
+gss_subset <- filter(gss, partyid=="Independent near Democrat" | partyid=="Independent near Republican", childs!="NA")
+
+ggplot(gss_subset, aes(x = partyid)) + 
+  geom_histogram(stat="count") + 
+  facet_wrap(~ childs) + 
+  coord_flip() + 
+  theme_bw() + 
+  xlab("Party ID") + ylab(NULL) + 
+  ggtitle("Count of Party ID by Number of Children") + 
+  theme(axis.title.x=element_blank(), axis.text.x=element_blank(), 
+        axis.ticks.x=element_blank())
 
 ```
 
