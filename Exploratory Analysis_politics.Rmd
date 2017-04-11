@@ -67,6 +67,22 @@ summary(glm((partyid == "Independent near Democrat") ~ as.factor(race) + (relig 
 # Indy Dem, other Dems removed
 summary(glm((partyid == "Independent near Democrat") ~ as.factor(race) + (relig == 4) + (born == 2 | reg16 == 0) + sex + age + rincom06 + sex:rincom06 + prestg80 + degree + degree:as.factor(race) + marital + adults + child1 + child2 + child3more + union, family = binomial(link = "logit"), data = gss, subset = !(gss$partyid %in% c("Strong Democrat", "Not Strong Democrat"))))
 
+# *New: Indy Dem, binary&subset
+gss$isblack <- ifelse(gss$race == 2, 1, 0)
+gss$isfemale <- ifelse(gss$sex == 2, 1, 0)
+dem_glm1 <- (glm((partyid == "Independent near Democrat") ~ isblack + (relig == 1 | relig == 2) +
+                   (born == 2 | reg16 == 0) + 
+                   isfemale + age +
+                   rincom06 + isfemale:rincom06 + age:rincom06 + isblack:rincom06 + 
+                   prestg80 + 
+                   degree + degree:isblack + 
+                   marital + 
+                   adults + as.factor(child1) + adults:as.factor(child1) +
+                   (union == 4), 
+                 family = binomial(link = "logit"), data = gss, 
+                 subset = !(gss$partyid %in% c("Strong Democrat", "Not Strong Democrat"))))
+summary(dem_glm1)
+
 # Indy Rep, no subset
 summary(glm((partyid == "Independent near Republican") ~ as.factor(race) + (relig == 4) + (born == 2 | reg16 == 0) + sex + age + rincom06 + sex:rincom06 + prestg80 + degree + degree:as.factor(race) + marital + adults + child1 + child2 + child3more + union, family = binomial(link = "logit"), data = gss))
 
@@ -84,6 +100,11 @@ exp(coef(independent_model))
 
 
 ```
+
+
+
+
+
 
 ```{r Initial Visuals}
 ggplot(gss, aes(x = partyid, y = age)) + 
