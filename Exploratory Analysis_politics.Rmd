@@ -70,17 +70,18 @@ summary(glm((partyid == "Independent near Democrat") ~ as.factor(race) + (relig 
 # *New: Indy Dem, binary&subset
 gss$isblack <- ifelse(gss$race == 2, 1, 0)
 gss$isfemale <- ifelse(gss$sex == 2, 1, 0)
-dem_glm1 <- (glm((partyid == "Independent near Democrat") ~ isblack + (relig == 1 | relig == 2) +
+dem_glm1 <- glm((partyid == "Independent near Democrat") ~ isblack + (relig != 1 & relig != 2) +
                    (born == 2 | reg16 == 0) + 
                    isfemale + age +
                    rincom06 + isfemale:rincom06 + age:rincom06 + isblack:rincom06 + 
                    prestg80 + 
                    degree + degree:isblack + 
                    marital + 
-                   adults + as.factor(child1) + adults:as.factor(child1) +
+                   adults + childs + #adults:childs +
                    (union == 4), 
-                 family = binomial(link = "logit"), data = gss, 
-                 subset = !(gss$partyid %in% c("Strong Democrat", "Not Strong Democrat"))))
+                 family = binomial(link = "logit"), data = gss 
+                 , subset = !(gss$partyid %in% c("Strong Democrat", "Not Strong Democrat"))
+                )
 summary(dem_glm1)
 
 # Indy Rep, no subset
