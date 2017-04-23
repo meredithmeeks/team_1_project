@@ -20,6 +20,12 @@ if (!require("tidyr")) {
 if (!require("readr")) {
  install.packages("readr", dependencies = TRUE)
  library(readr) }
+if (!require("readxl")) {
+ install.packages("readxl", dependencies = TRUE)
+ library(readxl) }
+if (!require("haven")) {
+ install.packages("haven", dependencies = TRUE)
+ library(haven) }
 if (!require("ggplot2")) {
  install.packages("ggplot2", dependencies = TRUE)
  library(ggplot2) }
@@ -35,6 +41,11 @@ if (!require("bartMachine")) {
 ```{r Import Data}
 
 gss <- read.csv("Data/GSS.2006.csv") # team_1_project/Data
+pew16 <- read_sav("Data/March16 public.sav")
+Pew_Yearly_Trends <- read_excel("Data/Pew_Yearly_Trends(hand_coded).xlsx", 
+                                col_types = c("numeric", "numeric", "numeric", 
+                                              "numeric", "numeric", "numeric"),
+                                na = "NA")
 
 ```
 
@@ -189,66 +200,29 @@ ggplot(gss_subset, aes(x = partyid)) +
 
 ```
 
-
-##### One-variable Logits (for general effect of variables)
-
 ```{r}
-## Taking it as factor: 
-partyid6 <- as.factor(gss$partyid == 6)
-# summary(partyid6)
-# False: 3989; True: 495
-partyid5 <- as.factor(gss$partyid == 5)
-# summary(partyid5)
-# False: 3847; True: 637
-partyid4 <- as.factor(gss$partyid == 4)
-# summary(partyid4)
-# False: 4157; True: 327
-partyid3 <- as.factor(gss$partyid == 3)
-# summary(partyid3)
-# False: 3487; True: 997
-partyid2 <- as.factor(gss$partyid == 2)
-# summary(partyid2)
-# False: 3957; True: 527
-partyid1 <- as.factor(gss$partyid == 1)
-# summary(partyid1)
-# False: 3748; True: 736
-partyid0 <- as.factor(gss$partyid == 0)
-# summary(partyid0)
-
-(sexlogit0 <- glm(partyid0 ~ sex, family=binomial(), data=gss))
-
-(sexlogit1 <- glm(partyid1 ~ sex, family=binomial(), data=gss))
-
-(sexlogit2 <- glm(partyid2 ~ sex, family=binomial(), data=gss))
-
-(sexlogit3 <- glm(partyid3 ~ sex, family=binomial(), data=gss))
-
-(sexlogit4 <- glm(partyid4 ~ sex, family=binomial(), data=gss))
-
-(sexlogit5 <- glm(partyid5 ~ sex, family=binomial(), data=gss))
-
-(sexlogit6 <- glm(partyid6 ~ sex, family=binomial(), data=gss))
+ggplot(Pew_Yearly_Trends, aes(x = Year)) +
+  geom_line(aes(y = Republican, col = "1"), lwd = 1.5) +
+  geom_line(aes(y = Democrat, col = "2"), lwd = 1.5) +
+  geom_line(aes(y = Independent, col = "3"), lwd = 1.5) +
+  scale_y_continuous("Percent of Polled Respondents") +
+  scale_colour_manual("Political Affiliation", values = c("red", "blue", "green"),
+                        labels = c("Republican", "Democrat", "Independent")) +
+  ggtitle("Yearly Trends in Political Party Affiliation\n(by Pew Research Center)") +
+  theme(legend.position = "right") +
+  ggthemes::theme_economist_white()
 
 
-(racelogit0 <- glm(partyid0 ~ race, family=binomial(), data=gss))
-
-(racelogit1 <- glm(partyid1 ~ race, family=binomial(), data=gss))
-
-(racelogit2 <- glm(partyid2 ~ race, family=binomial(), data=gss))
-
-(racelogit3 <- glm(partyid3 ~ race, family=binomial(), data=gss))
-
-(racelogit4 <- glm(partyid4 ~ race, family=binomial(), data=gss))
-
-(racelogit5 <- glm(partyid5 ~ race, family=binomial(), data=gss))
-
-(racelogit6 <- glm(partyid6 ~ race, family=binomial(), data=gss))
-
-
-```
-
-```{r}
-
+ggplot(Pew_Yearly_Trends, aes(x = Year)) +
+  geom_line(aes(y = Independent - (`Lean Republican` + `Lean Democrat`), col = "1"), lwd = 1.5) +
+  geom_line(aes(y = `Lean Republican`, col = "2"), lwd = 1.5) +
+  geom_line(aes(y = `Lean Democrat`, col = "3"), lwd = 1.5) +
+  scale_y_continuous("Percent of Polled Respondents") +
+  scale_colour_manual("Political Affiliation", values = c("green", "red", "blue"),
+                        labels = c("True Independent", "Lean Republican", "Lean Democrat")) +
+  ggtitle("Yearly Trends in Political Party Affiliation\nof Independents\n(by Pew Research Center)") +
+  theme(legend.position = "right") +
+  ggthemes::theme_tufte()
 ```
 
 ```{r}
