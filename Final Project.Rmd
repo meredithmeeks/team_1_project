@@ -40,7 +40,7 @@ if (!require("bartMachine")) {
 
 ### Clean and Subset Data
 
-```{r Import Data}
+```{r Import Data, message=FALSE, warning=FALSE}
 
 gss <- read.csv("Data/GSS.2006.csv") # team_1_project/Data
 pew16 <- read_sav("Data/March16 public.sav")
@@ -78,21 +78,25 @@ gss$sex <- as.factor(gss$sex)
 gss$race <- as.factor(gss$race)
 ```
 
-### Yearly Trends (source: Pew)
+### Yearly Trends (source: Pew Research Center)
 
 According to Pew:
 
 "The recent changes in partisan identification serve as a reminder that affiliation with a party is an attitude, one which can and does change. Previous research has shown that few people switch immediately from Republican to Democratic identification or vice versa. __Most of the movement is from independents who assume a party label or from partisans who no longer identify with their former party.__
 
 In fact, most of the survey's independent and non-partisan voters report changing their party affiliation - 72% say they have thought of themselves as a Republican, a Democrat or both at some point in their life and 54% considered themselves a partisan in the past five years. About one-in-five independent voters (22%) say they considered themselves a Republican (but not a Democrat) during this period, while 23% of independents considered themselves a Democrat (but not a Republican)."
+Source: http://www.people-press.org/2010/09/23/section-3-trends-in-party-affiliation/
 
-http://www.people-press.org/2010/09/23/section-3-trends-in-party-affiliation/
+Therefore, determining the population distributions of Independents with particular party leanings might help canvassers rally more votes in elections through concentrated efforts directed at individuals that will need the least amount of convincing to vote for the canvassers party, but might not vote otherwise.
 
-```{r}
+```{r, message=FALSE, warning=FALSE}
 ggplot(Pew_Yearly_Trends, aes(x = Year)) +
   geom_line(aes(y = Republican, col = "1"), lwd = 1.5) +
   geom_line(aes(y = Democrat, col = "2"), lwd = 1.5) +
   geom_line(aes(y = Independent, col = "3"), lwd = 1.5) +
+  geom_point(aes(y = Republican, col = "1"), size = 3) +
+  geom_point(aes(y = Democrat, col = "2"), size = 3) +
+  geom_point(aes(y = Independent, col = "3"), size = 3) +
   scale_y_continuous("Percent of Polled Respondents") +
   scale_colour_manual("Political Affiliation", values = c("red", "blue", "green"),
                         labels = c("Republican", "Democrat", "Independent")) +
@@ -105,6 +109,9 @@ ggplot(Pew_Yearly_Trends, aes(x = Year)) +
   geom_line(aes(y = Independent - (`Lean Republican` + `Lean Democrat`), col = "1"), lwd = 1.5) +
   geom_line(aes(y = `Lean Republican`, col = "2"), lwd = 1.5) +
   geom_line(aes(y = `Lean Democrat`, col = "3"), lwd = 1.5) +
+  geom_point(aes(y = Independent - (`Lean Republican` + `Lean Democrat`), col = "1"), size = 3) +
+  geom_point(aes(y = `Lean Republican`, col = "2"), size = 3) +
+  geom_point(aes(y = `Lean Democrat`, col = "3"), size = 3) +
   scale_y_continuous("Percent of Polled Respondents") +
   scale_colour_manual("Political Affiliation", values = c("green", "red", "blue"),
                         labels = c("True Independent", "Lean Republican", "Lean Democrat")) +
@@ -113,9 +120,11 @@ ggplot(Pew_Yearly_Trends, aes(x = Year)) +
   ggthemes::theme_tufte()
 ```
 
-### Yearly Trends (source: GSS 1972-2016)
+As seen from the charts above, the percentage of people identifying themselves as Independents is on the rise, according to Pew. Therefore, the fight for votes may very well be concentrated increasingly more on swaying Independents to one political camp or another, assuming that a third party will not be created.
 
-```{r}
+### Yearly Trends (source: General Social Survey 1972-2016)
+
+```{r, message=FALSE, warning=FALSE}
 yrsum <- gss_sub %>% group_by(year) %>%
   summarise(partyid_sum = sum(!is.na(partyid)),
             Indy = sum(partyid == "Independent", na.rm = TRUE),
@@ -139,6 +148,8 @@ ggplot(yrsum, aes(x = year)) +
   ggthemes::theme_tufte()
 ```
 
+GSS data largely conforms to the trends found by Pew. Although the trend is smaller, the percentage of Independents is on the rise, with many of them leaning towards one party or another and potentially holding the key to elections. 
+
 ### Data Analysis
 
 ```{r Average Numbers}
@@ -149,6 +160,12 @@ mean(100*yrsum$Indy_rep/yrsum$partyid_sum)
 mean(100*yrsum$Indy_dem/yrsum$partyid_sum)
 ```
 
+Averaged out over the 31 years of GSS, Independent near Republicans provide a potential ~9% of population that might vote Republican, and Independent near Democrats, 12% that might vote Democrat, with recent numbers being higher, and not counting true Independents that could also potentially be swayed. Since these votes are not guaranteed, indicated by the respondents' choice to identify as Independents instead of belonging to a party, securing them may be a step towards election victory.
+
+Below are the models attempting to draw out the background characteristics of Independents to help canvassers concentrate their efforts on individuals with similar characteristics. The presentation file for this project contains a summary cheatsheet of what characteristics to concentrate on and what characteristics to avoid.
+
+We have chosen to run logit models, since they are more appropriate for classification problems of this kind, at the cost of interpretability. Direct coefficients give us a change in the log odds of the outcome given a one unit increase in that predictor variable, holding all other predictors constant. For Independents, an increase of 1 in an individual's occupational prestige score decreases their log odds of being an Independent by 0.022. Exponentiating coefficients allows us to interpret them as odds ratios. For Independents, exponentiated coefficient on `child1` tells us that someone who has 1 child is 1.6 times more likely to be an Independent than someone who does not. For Independents, exponentiated coefficient on occupational prestige tells us that an increase of one point in an occupational prestige scores means you have 0.977 the odds of being an independent (a slight decrease in odds).
+
 ```{r Analysis}
 # Independent near Democrat, no subset
 summary(glm((partyid == "Independent near Democrat") ~ as.factor(race) + (relig == 4) + (born == 2 | reg16 == 0) + sex + age + rincom06 + sex:rincom06 + prestg80 + degree + degree:as.factor(race) + marital + adults + child1 + child2 + child3more + union, family = binomial(link = "logit"), data = gss))
@@ -157,10 +174,10 @@ summary(glm((partyid == "Independent near Democrat") ~ as.factor(race) + (relig 
 summary(glm((partyid == "Independent near Democrat") ~ as.factor(race) + (relig == 4) + (born == 2 | reg16 == 0) + sex + age + rincom06 + sex:rincom06 + prestg80 + degree + degree:as.factor(race) + marital + adults + child1 + child2 + child3more + union, family = binomial(link = "logit"), data = gss, subset = !(gss$partyid %in% c("Strong Democrat", "Not Strong Democrat"))))
 
 # Independent near Republican, no subset
-summary(glm((partyid == "Independent near Republican") ~ as.factor(race) + (relig == 4) + (born == 2 | reg16 == 0) + sex + age + rincom06 + sex:rincom06 + prestg80 + degree + degree:as.factor(race) + marital + adults + child1 + child2 + child3more + union, family = binomial(link = "logit"), data = gss))
+summary(republican <- glm((partyid == "Independent near Republican") ~ (race == 2) + (relig == 1 | relig == 2) + (born == 2 | reg16 == 0) + sex + age + rincom06 + prestg80 + degree + (relig == 1 | relig == 2):(race == 2) + (marital == 5) + adults + child1 + child2 + child3more + union, family = binomial(link = "logit"), data = gss))
 
 # Independent near Republican, other Republicans removed
-summary(glm((partyid == "Independent near Republican") ~ as.factor(race) + (relig == 4) + (born == 2 | reg16 == 0) + sex + age + rincom06 + sex:rincom06 + prestg80 + degree + degree:as.factor(race) + marital + adults + child1 + child2 + child3more + union, family = binomial(link = "logit"), data = gss, subset = !(gss$partyid %in% c("Strong Republican", "Not Strong Republican"))))
+summary(republican <- glm((partyid == "Independent near Republican") ~ (race == 2) + (relig == 1 | relig == 2) + (born == 2 | reg16 == 0) + sex + age + rincom06 + prestg80 + degree + (relig == 1 | relig == 2):(race == 2) + (marital == 5) + adults + child1 + child2 + child3more + union, family = binomial(link = "logit"), data = gss, subset = !(gss$partyid %in% c("Strong Republican", "Not Strong Republican"))))
 
 # Independent model full
 summary(independent <- glm((partyid == "Independent") ~ as.factor(race) + (relig == 4) + (born == 2 | reg16 == 0) + sex + age + rincom06 + sex:rincom06 + prestg80 + degree + degree:as.factor(race) + marital + adults + child1 + child2 + child3more + union, family = binomial(link = "logit"), data = gss))
@@ -170,28 +187,10 @@ summary(independent <- glm((partyid == "Independent") ~ as.factor(race) + (relig
 
 ```
 
-```{r}
-# Indy Rep, no subset
-summary(republican <- glm((partyid == "Independent near Republican") ~ (race == 2) + (relig == 1 | relig == 2) + (born == 2 | reg16 == 0) + sex + age^2 + rincom06 + prestg80 + degree + (relig == 1 | relig == 2):(race == 2) + (marital == 5) + adults + child1 + child2 + child3more + union, family = binomial(link = "logit"), data = gss))
-
-# Indy Rep, other Reps removed
-summary(glm((partyid == "Independent near Republican") ~ as.factor(race) + (relig == 4) + (born == 2 | reg16 == 0) + sex + age + rincom06 + sex:rincom06 + prestg80 + degree + degree:as.factor(race) + marital + adults + child1 + child2 + child3more + union, family = binomial(link = "logit"), data = gss, subset = !(gss$partyid %in% c("Strong Republican", "Not Strong Republican"))))
-
-pred <- predict.glm(republican, newdata = gss, type = "response") > 0.5
-true_val <- gss$partyid == "Independent near Republican"
-comparison <- true_val == pred
-mean(comparison, na.rm = TRUE)
-
-
-
-
-
-
-```
 
 ### Project Book
 
-Exploratory Visualizations:
+Exploratory visualizations used in discovering relevant characteristics for the models:
 
 ```{r Initial Visuals}
 
