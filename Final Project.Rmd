@@ -35,7 +35,6 @@ if (!require("ggthemes")) {
 if (!require("bartMachine")) {
  install.packages("bartMachine", dependencies = TRUE)
  library(bartMachine) }
-
 ```
 
 ### Clean and Subset Data
@@ -193,6 +192,10 @@ summary(independent <- glm((partyid == "Independent") ~ as.factor(race) + (relig
 Exploratory visualizations used in discovering relevant characteristics for the models:
 
 ```{r Initial Visuals}
+
+ggplot(gss[gss$partyid %in% partynames[c(1:7)], ],
+      aes(x = (partyid == "Not Strong Republican"), fill = (relig == 1 | relig == 2))) +
+ geom_bar(position = "fill")
 
 ggplot() +
   geom_bar(data = gss[gss$partyid %in% partynames[c(1:4,6,7)], ], 
