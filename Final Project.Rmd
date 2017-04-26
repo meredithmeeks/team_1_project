@@ -1,0 +1,313 @@
+---
+title: "Exploratory Analysis by SA"
+author: "QMSS5069 Team 1"
+date: "February 20, 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r Libraries, message=FALSE, warning=TRUE}
+
+if (!require("dplyr")) {
+ install.packages("dplyr", dependencies = TRUE)
+ library(dplyr) }
+if (!require("tidyr")) {
+ install.packages("tidyr", dependencies = TRUE)
+ library(tidyr) }
+if (!require("readr")) {
+ install.packages("readr", dependencies = TRUE)
+ library(readr) }
+if (!require("readxl")) {
+ install.packages("readxl", dependencies = TRUE)
+ library(readxl) }
+if (!require("haven")) {
+ install.packages("haven", dependencies = TRUE)
+ library(haven) }
+if (!require("ggplot2")) {
+ install.packages("ggplot2", dependencies = TRUE)
+ library(ggplot2) }
+if (!require("ggthemes")) {
+ install.packages("ggthemes", dependencies = TRUE)
+ library(ggthemes) }
+if (!require("bartMachine")) {
+ install.packages("bartMachine", dependencies = TRUE)
+ library(bartMachine) }
+
+```
+
+### Clean and Subset Data
+
+```{r Import Data}
+
+gss <- read.csv("Data/GSS.2006.csv") # team_1_project/Data
+pew16 <- read_sav("Data/March16 public.sav")
+Pew_Yearly_Trends <- read_excel("Data/Pew_Yearly_Trends(hand_coded).xlsx", 
+                                col_types = c("numeric", "numeric", "numeric", 
+                                              "numeric", "numeric", "numeric"),
+                                na = "NA")
+
+# GSS 1972-2016
+# gss7216 <- read_sav("GSS7216.sav")
+# gss_sub <- select(gss7216, year, partyid, sex, race, relig, born, 
+#                  age, degree, reg16, prestg80, marital, adults, childs,
+#                  rincome, rincom06)
+# save(gss_sub, file = "gss_sub.rda")
+
+load("Data/gss_sub.rda")
+partynames <- c("Strong Democrat", "Not Strong Democrat", "Independent near Democrat", 
+                        "Independent", "Independent near Republican", "Not Strong Republican", 
+                        "Strong Republican", "Other")
+
+gss_sub$partyid <- as.factor(gss_sub$partyid)
+levels(gss_sub$partyid) <- partynames
+
+gss$partyid <- as.factor(gss$partyid)
+levels(gss$partyid) <- partynames
+
+gss$child1 <- ifelse(gss$childs==1, 1, 0)
+gss$child2 <- ifelse(gss$childs==2, 1, 0)
+gss$child3more <- ifelse(gss$childs>=3, 1, 0)
+gss$region <- as.factor(gss$region)
+gss <- within(gss, region <- relevel(region, ref = 3))
+gss$relig <- as.factor(gss$relig)
+gss <- within(gss, relig <- relevel(relig, ref = 4))
+gss$sex <- as.factor(gss$sex)
+gss$race <- as.factor(gss$race)
+```
+
+### Yearly Trends (source: Pew)
+
+According to Pew:
+
+"The recent changes in partisan identification serve as a reminder that affiliation with a party is an attitude, one which can and does change. Previous research has shown that few people switch immediately from Republican to Democratic identification or vice versa. __Most of the movement is from independents who assume a party label or from partisans who no longer identify with their former party.__
+
+In fact, most of the survey's independent and non-partisan voters report changing their party affiliation - 72% say they have thought of themselves as a Republican, a Democrat or both at some point in their life and 54% considered themselves a partisan in the past five years. About one-in-five independent voters (22%) say they considered themselves a Republican (but not a Democrat) during this period, while 23% of independents considered themselves a Democrat (but not a Republican)."
+
+http://www.people-press.org/2010/09/23/section-3-trends-in-party-affiliation/
+
+```{r}
+ggplot(Pew_Yearly_Trends, aes(x = Year)) +
+  geom_line(aes(y = Republican, col = "1"), lwd = 1.5) +
+  geom_line(aes(y = Democrat, col = "2"), lwd = 1.5) +
+  geom_line(aes(y = Independent, col = "3"), lwd = 1.5) +
+  scale_y_continuous("Percent of Polled Respondents") +
+  scale_colour_manual("Political Affiliation", values = c("red", "blue", "green"),
+                        labels = c("Republican", "Democrat", "Independent")) +
+  ggtitle("Yearly Trends in Political Party Affiliation\n(by Pew Research Center)") +
+  theme(legend.position = "right") +
+  ggthemes::theme_tufte()
+
+
+ggplot(Pew_Yearly_Trends, aes(x = Year)) +
+  geom_line(aes(y = Independent - (`Lean Republican` + `Lean Democrat`), col = "1"), lwd = 1.5) +
+  geom_line(aes(y = `Lean Republican`, col = "2"), lwd = 1.5) +
+  geom_line(aes(y = `Lean Democrat`, col = "3"), lwd = 1.5) +
+  scale_y_continuous("Percent of Polled Respondents") +
+  scale_colour_manual("Political Affiliation", values = c("green", "red", "blue"),
+                        labels = c("True Independent", "Lean Republican", "Lean Democrat")) +
+  ggtitle("Yearly Trends in Political Party Affiliation\nof Independents\n(by Pew Research Center)") +
+  theme(legend.position = "right") +
+  ggthemes::theme_tufte()
+```
+
+### Yearly Trends (source: GSS 1972-2016)
+
+```{r}
+yrsum <- gss_sub %>% group_by(year) %>%
+  summarise(partyid_sum = sum(!is.na(partyid)),
+            Indy = sum(partyid == "Independent", na.rm = TRUE),
+            Indy_rep = sum(partyid == "Independent near Republican", na.rm = TRUE),
+            Indy_dem = sum(partyid == "Independent near Democrat", na.rm = TRUE),
+            Rep = sum(partyid == "Not Strong Republican" | partyid == "Strong Republican", na.rm = TRUE),
+            Dem = sum(partyid == "Not Strong Democrat" | partyid == "Strong Democrat", na.rm = TRUE))
+
+ggplot(yrsum, aes(x = year)) +
+  geom_line(aes(y = 100*Indy/partyid_sum, col = "1"), lwd = 1.5) +
+  geom_line(aes(y = 100*Indy_rep/partyid_sum, col = "2"), lwd = 1.5) +
+  geom_line(aes(y = 100*Indy_dem/partyid_sum, col = "3"), lwd = 1.5) +
+  geom_point(aes(y = 100*Indy/partyid_sum, col = "1"), size = 3) +
+  geom_point(aes(y = 100*Indy_rep/partyid_sum, col = "2"), size = 3) +
+  geom_point(aes(y = 100*Indy_dem/partyid_sum, col = "3"), size = 3) +
+  scale_y_continuous("Percent of Respondents") +
+  scale_colour_manual("Political Affiliation", values = c("green", "red", "blue"),
+                        labels = c("True Independent", "Near Republican", "Near Democrat")) +
+  ggtitle("Yearly Trends in Political Party Affiliation\nof Independents (source: GSS 1972-2016)") +
+  theme(legend.position = "right") +
+  ggthemes::theme_tufte()
+```
+
+### Data Analysis
+
+```{r Average Numbers}
+# average percentage of Independent near Republicans
+mean(100*yrsum$Indy_rep/yrsum$partyid_sum) 
+
+# average percentage of Independent near Democrats
+mean(100*yrsum$Indy_dem/yrsum$partyid_sum)
+```
+
+```{r Analysis}
+# Independent near Democrat, no subset
+summary(glm((partyid == "Independent near Democrat") ~ as.factor(race) + (relig == 4) + (born == 2 | reg16 == 0) + sex + age + rincom06 + sex:rincom06 + prestg80 + degree + degree:as.factor(race) + marital + adults + child1 + child2 + child3more + union, family = binomial(link = "logit"), data = gss))
+
+# Independent near Democrat, other Democrats removed
+summary(glm((partyid == "Independent near Democrat") ~ as.factor(race) + (relig == 4) + (born == 2 | reg16 == 0) + sex + age + rincom06 + sex:rincom06 + prestg80 + degree + degree:as.factor(race) + marital + adults + child1 + child2 + child3more + union, family = binomial(link = "logit"), data = gss, subset = !(gss$partyid %in% c("Strong Democrat", "Not Strong Democrat"))))
+
+# Independent near Republican, no subset
+summary(glm((partyid == "Independent near Republican") ~ as.factor(race) + (relig == 4) + (born == 2 | reg16 == 0) + sex + age + rincom06 + sex:rincom06 + prestg80 + degree + degree:as.factor(race) + marital + adults + child1 + child2 + child3more + union, family = binomial(link = "logit"), data = gss))
+
+# Independent near Republican, other Republicans removed
+summary(glm((partyid == "Independent near Republican") ~ as.factor(race) + (relig == 4) + (born == 2 | reg16 == 0) + sex + age + rincom06 + sex:rincom06 + prestg80 + degree + degree:as.factor(race) + marital + adults + child1 + child2 + child3more + union, family = binomial(link = "logit"), data = gss, subset = !(gss$partyid %in% c("Strong Republican", "Not Strong Republican"))))
+
+# Independent model full
+summary(independent <- glm((partyid == "Independent") ~ as.factor(race) + (relig == 4) + (born == 2 | reg16 == 0) + sex + age + rincom06 + sex:rincom06 + prestg80 + degree + degree:as.factor(race) + marital + adults + child1 + child2 + child3more + union, family = binomial(link = "logit"), data = gss))
+
+# Independent vs Republicans vs Democrats
+
+
+```
+
+```{r}
+# Indy Rep, no subset
+summary(republican <- glm((partyid == "Independent near Republican") ~ (race == 2) + (relig == 1 | relig == 2) + (born == 2 | reg16 == 0) + sex + age^2 + rincom06 + prestg80 + degree + (relig == 1 | relig == 2):(race == 2) + (marital == 5) + adults + child1 + child2 + child3more + union, family = binomial(link = "logit"), data = gss))
+
+# Indy Rep, other Reps removed
+summary(glm((partyid == "Independent near Republican") ~ as.factor(race) + (relig == 4) + (born == 2 | reg16 == 0) + sex + age + rincom06 + sex:rincom06 + prestg80 + degree + degree:as.factor(race) + marital + adults + child1 + child2 + child3more + union, family = binomial(link = "logit"), data = gss, subset = !(gss$partyid %in% c("Strong Republican", "Not Strong Republican"))))
+
+pred <- predict.glm(republican, newdata = gss, type = "response") > 0.5
+true_val <- gss$partyid == "Independent near Republican"
+comparison <- true_val == pred
+mean(comparison, na.rm = TRUE)
+
+
+
+
+
+
+```
+
+### Project Book
+
+Exploratory Visualizations:
+
+```{r Initial Visuals}
+
+ggplot() +
+  geom_bar(data = gss[gss$partyid %in% partynames[c(1:4,6,7)], ], 
+           aes(x = sex, y = (..count..)/sum(..count..))) +
+  geom_bar(data = gss[gss$partyid %in% partynames[5], ],
+           aes(x = sex, y = (..count..)/sum(..count..))) +
+  scale_y_continuous("Percent") +
+  ggtitle("Gender-based difference between Independent-near-Republicans\nand non-Independent-near-Republicans")
+
+ggplot(gss, aes(x = partyid, y = age)) + 
+  geom_jitter((aes(color=sex))) + 
+  facet_wrap(~ race) + 
+  ggtitle("Relationship between Age and PartyID, separating by Sex and Race") + 
+  labs(x="Political Party Affiliation", y="Age")
+
+ggplot(gss, aes(x = partyid, fill = as.factor(reg16))) +
+  geom_bar(stat = "count")
+
+ggplot(gss, aes(x = reg16, fill = partyid)) +
+  geom_bar(stat = "count")
+
+ggplot(gss, aes(x = age)) +
+  geom_histogram() + 
+  facet_wrap(~ partyid)
+
+ggplot(gss, aes(x = partyid, y = sex)) + 
+  geom_jitter((aes(color=partyid))) + 
+  ggtitle("Relationship between Political Party Affiliation and Sex") + 
+  labs(x="Party ID", y="Sex")
+
+ggplot(gss, aes(x = partyid, y = sex)) + 
+  geom_jitter((aes(color=sex))) + 
+  facet_wrap(~ race) + 
+  ggtitle("Relationship between Political Party Affiliation and Gender, separated by Race") + 
+  labs(x="Political Party Affiliation", y="Sex")
+
+ggplot(gss, aes(x = partyid, y = sex)) + 
+  geom_jitter((aes(color=race))) + 
+  ggtitle("Relationship between Age and Gender, separated by Race") + 
+  labs(x="Political Party Affiliation", y="Sex")
+
+ggplot(gss, aes(x = partyid, y = race)) + 
+  geom_jitter((aes(color=partyid))) + 
+  ggtitle("Relationship between Political Party Affiliation and Race") + 
+  labs(x="Party ID", y="Race")
+
+ggplot(gss, aes(x = partyid, y = race)) + 
+  geom_jitter((aes(color=partyid))) + 
+  ggtitle("Relationship between Political Party Affiliation and Race") + 
+  labs(x="Party ID", y="Race") + facet_wrap(~sex)
+
+gss$notstrongdem <- ifelse(gss$partyid==1, 1, 0)
+  
+ggplot(gss, aes(relig)) + 
+  geom_bar(aes(fill=as.factor(gss$partyid)))
+
+#blue - weak democrat
+ggplot(gss, aes(relig)) + 
+  geom_bar(aes(fill=as.factor(gss$notstrongdem)))
+
+ggplot(gss, aes(x=relig, y=notstrongdem, color=as.factor(sex))) + 
+  geom_jitter()
+
+#relig16
+ggplot(gss, aes(relig16)) + 
+  geom_bar(aes(fill=as.factor(gss$partyid)))
+
+#blue - weak democrat
+ggplot(gss, aes(relig16)) + 
+  geom_bar(aes(fill=as.factor(gss$notstrongdem)))
+
+ggplot(gss, aes(x=relig16, y=notstrongdem, color=as.factor(sex))) + 
+  geom_jitter()
+
+#adults
+ggplot(gss, aes(adults)) + 
+  geom_bar(aes(fill=as.factor(gss$partyid)))
+
+#blue - weak democrat
+ggplot(gss, aes(adults)) + 
+  geom_bar(aes(fill=as.factor(gss$notstrongdem)))
+
+ggplot(gss, aes(x=adults, y=notstrongdem, color=as.factor(sex))) + 
+  geom_jitter()
+
+ggplot(gss, aes(x=adults, y=notstrongdem, color=as.factor(race))) + 
+  geom_jitter()
+
+gss_subset <- filter(gss, partyid=="Independent near Democrat" | partyid=="Independent near Republican", childs!="NA")
+
+ggplot(gss_subset, aes(x = partyid)) + 
+  geom_histogram(stat="count") + 
+  facet_wrap(~ childs) + 
+  coord_flip() + 
+  theme_bw() + 
+  xlab("Party ID") + ylab(NULL) + 
+  ggtitle("Count of Party ID by Number of Children") + 
+  theme(axis.title.x=element_blank(), axis.text.x=element_blank(), 
+        axis.ticks.x=element_blank())
+
+```
+
+```{r}
+gss_nona <- gss_sub[!is.na(gss_sub$partyid),]
+
+gss_nona %>% group_by(year) %>%
+  summarise(male = sum(sex == 1),
+            female = sum(sex == 2),
+            total = sum(sex == 1 | sex == 2),
+            male_ratio = male/total,
+            female_ratio = female/total) %>%
+ggplot(aes(x = year)) +
+  geom_line(aes(y = female_ratio))
+```
+
+
+

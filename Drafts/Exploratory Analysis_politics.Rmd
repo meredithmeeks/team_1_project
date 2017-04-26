@@ -1,0 +1,268 @@
+---
+title: "Exploratory Analysis"
+author: "QMSS5069 Team 1"
+date: "February 20, 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r Libraries, message=FALSE, warning=TRUE}
+
+if (!require("dplyr")) {
+ install.packages("dplyr", dependencies = TRUE)
+ library(dplyr) }
+if (!require("tidyr")) {
+ install.packages("tidyr", dependencies = TRUE)
+ library(tidyr) }
+if (!require("readr")) {
+ install.packages("readr", dependencies = TRUE)
+ library(readr) }
+if (!require("ggplot2")) {
+ install.packages("ggplot2", dependencies = TRUE)
+ library(ggplot2) }
+if (!require("ggthemes")) {
+ install.packages("ggthemes", dependencies = TRUE)
+ library(ggthemes) }
+if (!require("bartMachine")) {
+ install.packages("bartMachine", dependencies = TRUE)
+ library(bartMachine) }
+
+```
+
+```{r Import Data}
+
+gss <- read.csv("Data/GSS.2006.csv") # team_1_project/Data
+
+```
+
+### Clean and Subset Data
+```{r Recode Data}
+
+partynames <- c("Strong Democrat", "Not Strong Democrat", "Independent near Democrat", 
+                        "Independent", "Independent near Republican", "Not Strong Republican", 
+                        "Strong Republican", "Other")
+
+gss$partyid <- as.factor(gss$partyid)
+levels(gss$partyid) <- partynames
+
+gss$child1 <- ifelse(gss$childs==1, 1, 0)
+gss$child2 <- ifelse(gss$childs==2, 1, 0)
+gss$child3more <- ifelse(gss$childs>=3, 1, 0)
+gss$region <- as.factor(gss$region)
+gss <- within(gss, region <- relevel(region, ref = 3))
+gss$relig <- as.factor(gss$relig)
+gss <- within(gss, relig <- relevel(relig, ref = 4))
+gss$sex <- as.factor(gss$sex)
+gss$race <- as.factor(gss$race)
+
+```
+
+```{r Analysis}
+# Indy Dem, no subset
+summary(glm((partyid == "Independent near Democrat") ~ as.factor(race) + (relig == 4) + (born == 2 | reg16 == 0) + sex + age + rincom06 + sex:rincom06 + prestg80 + degree + degree:as.factor(race) + marital + adults + child1 + child2 + child3more + union, family = binomial(link = "logit"), data = gss))
+
+# Indy Dem, other Dems removed
+summary(glm((partyid == "Independent near Democrat") ~ as.factor(race) + (relig == 4) + (born == 2 | reg16 == 0) + sex + age + rincom06 + sex:rincom06 + prestg80 + degree + degree:as.factor(race) + marital + adults + child1 + child2 + child3more + union, family = binomial(link = "logit"), data = gss, subset = !(gss$partyid %in% c("Strong Democrat", "Not Strong Democrat"))))
+
+# *New: Indy Dem, binary&subset
+gss$isblack <- ifelse(gss$race == 2, 1, 0)
+gss$isfemale <- ifelse(gss$sex == 2, 1, 0)
+dem_glm1 <- (glm((partyid == "Independent near Democrat") ~ isblack + (relig == 1 | relig == 2) +
+                   (born == 2 | reg16 == 0) + 
+                   isfemale + age +
+                   rincom06 + isfemale:rincom06 + age:rincom06 + isblack:rincom06 + 
+                   prestg80 + 
+                   degree + degree:isblack + 
+                   marital + 
+                   adults + as.factor(child1) + adults:as.factor(child1) +
+                   (union == 4), 
+                 family = binomial(link = "logit"), data = gss, 
+                 subset = !(gss$partyid %in% c("Strong Democrat", "Not Strong Democrat"))))
+summary(dem_glm1)
+
+# Indy Rep, no subset
+summary(glm((partyid == "Independent near Republican") ~ as.factor(race) + (relig == 4) + (born == 2 | reg16 == 0) + sex + age + rincom06 + sex:rincom06 + prestg80 + degree + degree:as.factor(race) + marital + adults + child1 + child2 + child3more + union, family = binomial(link = "logit"), data = gss))
+
+# Indy Rep, other Reps removed
+summary(glm((partyid == "Independent near Republican") ~ as.factor(race) + (relig == 4) + (born == 2 | reg16 == 0) + sex + age + rincom06 + sex:rincom06 + prestg80 + degree + degree:as.factor(race) + marital + adults + child1 + child2 + child3more + union, family = binomial(link = "logit"), data = gss, subset = !(gss$partyid %in% c("Strong Republican", "Not Strong Republican"))))
+
+# Indy model full
+summary(glm((partyid == "Independent") ~ as.factor(race) + (relig == 4) + (born == 2 | reg16 == 0) + sex + age + rincom06 + sex:rincom06 + prestg80 + degree + degree:as.factor(race) + marital + adults + child1 + child2 + child3more + union, family = binomial(link = "logit"), data = gss))
+
+independent_model <- glm((partyid == "Independent") ~ as.factor(race) + (relig == 4) + (born == 2 | reg16 == 0) + sex + age + rincom06 + sex:rincom06 + prestg80 + degree + degree:as.factor(race) + marital + adults + child1 + child2 + child3more + union, family = binomial(link = "logit"), data = gss)
+
+exp(coef(independent_model))
+
+# Indy vs Rep vs Dem
+
+
+```
+
+
+
+
+
+
+```{r Initial Visuals}
+ggplot(gss, aes(x = partyid, y = age)) + 
+  geom_jitter((aes(color=sex))) + 
+  facet_wrap(~ race) + 
+  ggtitle("Relationship between Age and PartyID, separating by Sex and Race") + 
+  labs(x="Political Party Affiliation", y="Age")
+
+ggplot(gss, aes(x = partyid, fill = as.factor(reg16))) +
+  geom_bar(stat = "count")
+
+ggplot(gss, aes(x = reg16, fill = partyid)) +
+  geom_bar(stat = "count")
+
+ggplot(gss, aes(x = age)) +
+  geom_histogram() + 
+  facet_wrap(~ partyid)
+
+ggplot(gss, aes(x = partyid, y = sex)) + 
+  geom_jitter((aes(color=partyid))) + 
+  ggtitle("Relationship between Political Party Affiliation and Sex") + 
+  labs(x="Party ID", y="Sex")
+
+ggplot(gss, aes(x = partyid, y = sex)) + 
+  geom_jitter((aes(color=sex))) + 
+  facet_wrap(~ race) + 
+  ggtitle("Relationship between Political Party Affiliation and Gender, separated by Race") + 
+  labs(x="Political Party Affiliation", y="Sex")
+
+ggplot(gss, aes(x = partyid, y = sex)) + 
+  geom_jitter((aes(color=race))) + 
+  ggtitle("Relationship between Age and Gender, separated by Race") + 
+  labs(x="Political Party Affiliation", y="Sex")
+
+ggplot(gss, aes(x = partyid, y = race)) + 
+  geom_jitter((aes(color=partyid))) + 
+  ggtitle("Relationship between Political Party Affiliation and Race") + 
+  labs(x="Party ID", y="Race")
+
+ggplot(gss, aes(x = partyid, y = race)) + 
+  geom_jitter((aes(color=partyid))) + 
+  ggtitle("Relationship between Political Party Affiliation and Race") + 
+  labs(x="Party ID", y="Race") + facet_wrap(~sex)
+
+gss$notstrongdem <- ifelse(gss$partyid==1, 1, 0)
+  
+ggplot(gss, aes(relig)) + 
+  geom_bar(aes(fill=as.factor(gss$partyid)))
+
+#blue - weak democrat
+ggplot(gss, aes(relig)) + 
+  geom_bar(aes(fill=as.factor(gss$notstrongdem)))
+
+ggplot(gss, aes(x=relig, y=notstrongdem, color=as.factor(sex))) + 
+  geom_jitter()
+
+#relig16
+ggplot(gss, aes(relig16)) + 
+  geom_bar(aes(fill=as.factor(gss$partyid)))
+
+#blue - weak democrat
+ggplot(gss, aes(relig16)) + 
+  geom_bar(aes(fill=as.factor(gss$notstrongdem)))
+
+ggplot(gss, aes(x=relig16, y=notstrongdem, color=as.factor(sex))) + 
+  geom_jitter()
+
+#adults
+ggplot(gss, aes(adults)) + 
+  geom_bar(aes(fill=as.factor(gss$partyid)))
+
+#blue - weak democrat
+ggplot(gss, aes(adults)) + 
+  geom_bar(aes(fill=as.factor(gss$notstrongdem)))
+
+ggplot(gss, aes(x=adults, y=notstrongdem, color=as.factor(sex))) + 
+  geom_jitter()
+
+ggplot(gss, aes(x=adults, y=notstrongdem, color=as.factor(race))) + 
+  geom_jitter()
+
+gss_subset <- filter(gss, partyid=="Independent near Democrat" | partyid=="Independent near Republican", childs!="NA")
+
+ggplot(gss_subset, aes(x = partyid)) + 
+  geom_histogram(stat="count") + 
+  facet_wrap(~ childs) + 
+  coord_flip() + 
+  theme_bw() + 
+  xlab("Party ID") + ylab(NULL) + 
+  ggtitle("Count of Party ID by Number of Children") + 
+  theme(axis.title.x=element_blank(), axis.text.x=element_blank(), 
+        axis.ticks.x=element_blank())
+
+```
+
+
+##### One-variable Logits (for general effect of variables)
+
+```{r}
+## Taking it as factor: 
+partyid6 <- as.factor(gss$partyid == 6)
+# summary(partyid6)
+# False: 3989; True: 495
+partyid5 <- as.factor(gss$partyid == 5)
+# summary(partyid5)
+# False: 3847; True: 637
+partyid4 <- as.factor(gss$partyid == 4)
+# summary(partyid4)
+# False: 4157; True: 327
+partyid3 <- as.factor(gss$partyid == 3)
+# summary(partyid3)
+# False: 3487; True: 997
+partyid2 <- as.factor(gss$partyid == 2)
+# summary(partyid2)
+# False: 3957; True: 527
+partyid1 <- as.factor(gss$partyid == 1)
+# summary(partyid1)
+# False: 3748; True: 736
+partyid0 <- as.factor(gss$partyid == 0)
+# summary(partyid0)
+
+(sexlogit0 <- glm(partyid0 ~ sex, family=binomial(), data=gss))
+
+(sexlogit1 <- glm(partyid1 ~ sex, family=binomial(), data=gss))
+
+(sexlogit2 <- glm(partyid2 ~ sex, family=binomial(), data=gss))
+
+(sexlogit3 <- glm(partyid3 ~ sex, family=binomial(), data=gss))
+
+(sexlogit4 <- glm(partyid4 ~ sex, family=binomial(), data=gss))
+
+(sexlogit5 <- glm(partyid5 ~ sex, family=binomial(), data=gss))
+
+(sexlogit6 <- glm(partyid6 ~ sex, family=binomial(), data=gss))
+
+
+(racelogit0 <- glm(partyid0 ~ race, family=binomial(), data=gss))
+
+(racelogit1 <- glm(partyid1 ~ race, family=binomial(), data=gss))
+
+(racelogit2 <- glm(partyid2 ~ race, family=binomial(), data=gss))
+
+(racelogit3 <- glm(partyid3 ~ race, family=binomial(), data=gss))
+
+(racelogit4 <- glm(partyid4 ~ race, family=binomial(), data=gss))
+
+(racelogit5 <- glm(partyid5 ~ race, family=binomial(), data=gss))
+
+(racelogit6 <- glm(partyid6 ~ race, family=binomial(), data=gss))
+
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
