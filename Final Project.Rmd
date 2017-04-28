@@ -316,5 +316,25 @@ ggplot(aes(x = year)) +
   geom_line(aes(y = female_ratio))
 ```
 
+```{r religion visualization}
+ggplot(gss[(is.na(gss$relig) == F & gss$partyid %in% partynames[c(1:7)]), ], 
+       aes(x = (partyid == "Independent near Democrat"), fill = (relig == 1 | relig == 2))) + 
+  geom_bar(position = "fill") + ggtitle("Religion for Independent near Democrat") + 
+  ylab("Percentage") + xlab("Independent near Democrat") + theme_classic() + 
+  scale_fill_discrete(name = "Is Christian or not")
+
+ggplot(gss[(is.na(gss$relig) == F & gss$partyid %in% partynames[c(1:7)]), ], 
+       aes(x = (partyid == "Independent near Republican"), fill = (relig == 1 | relig == 2))) + 
+  geom_bar(position = "fill") + ggtitle("Religion for Independent near Republican") + 
+  ylab("Percentage") + xlab("Independent near Republican") + theme_classic() + 
+  scale_fill_discrete(name = "Is Christian or not")
+
+gss$republican <- (gss$partyid == "Not Strong Republican" | gss$partyid == "Strong Republican")
+ggplot(gss[(is.na(gss$relig) == F & gss$partyid %in% partynames[c(1:7)]), ], 
+        aes(x = (republican == 1), fill = (relig == 1 | relig == 2))) + 
+     geom_bar(position = "fill") + ggtitle("Religion for Republican") + 
+     ylab("Percentage") + xlab("Republican") + theme_classic() + 
+     scale_fill_discrete(name = "Is Christian or not")
+```
 
 
