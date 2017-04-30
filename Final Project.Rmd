@@ -1,8 +1,11 @@
 ---
-title: "Vote for Us!: Examining Demographics of Individuals with Weak Party Ties"
-author: "QMSS5069 Team 1: Svyatoslav Andriyishen, Shilpa Sure, Meredith Meeks, Kai Huo, Hannah Hao"
+title: 'Vote for Us!: Examining Demographics of Individuals with Weak Party Ties'
+author: 'QMSS5069 Team 1: Svyatoslav Andriyishen, Shilpa Sure, Meredith Meeks, Kai
+  Huo, Hannah Hao'
 date: "April 26, 2017"
-output: html_document
+output:
+  word_document: default
+  html_document: default
 ---
 
 ```{r setup, include=FALSE}
@@ -185,9 +188,6 @@ summary(republican <- glm((partyid == "Independent near Republican") ~ (race == 
 
 # Independent model full
 summary(independent <- glm((partyid == "Independent") ~ as.factor(race) + (relig == 4) + (born == 2 | reg16 == 0) + sex + age + rincom06 + sex:rincom06 + prestg80 + degree + degree:as.factor(race) + marital + adults + child1 + child2 + child3more + union, family = binomial(link = "logit"), data = gss))
-
-# Independent vs Republicans vs Democrats
-
 
 ```
 
